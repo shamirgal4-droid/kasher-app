@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 from tasks_email import send_daily_email
 
-SEND_TIME = os.environ.get("SEND_TIME", "08:00")
+SEND_TIME = os.environ.get("SEND_TIME", "07:00")
 REMINDER_TIME = os.environ.get("REMINDER_TIME", "19:00")
 TZ_OFFSET = int(os.environ.get("TZ_OFFSET", "3"))  # 3 = קיץ (IDT), 2 = חורף (IST)
 
