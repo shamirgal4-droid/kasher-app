@@ -25,23 +25,17 @@ def load_tasks():
         return json.load(f)
 
 
-def filter_timed_items(data):
+def build_reminder_data(data):
     """
-    מחזיר עותק של הרשימה שכולל רק משימות שיש להן שעה (time לא ריק).
-    משמש לתזכורת הערב — למשל 'Claude & Automation (19:00)'.
-    שומר רק סעיפים שנשאר בהם לפחות פריט אחד.
+    בונה את גרסת תזכורת הערב: מזכיר את *כל* מה שעדיין פתוח ברשימה
+    (כל דבר נשאר עד שמסמנים 'סיימתי'), עם ברכה מתאימה לערב.
+    שומר רק סעיפים שיש בהם לפחות פריט אחד.
     """
-    filtered_sections = []
-    for section in data.get("sections", []):
-        timed = [i for i in section.get("items", []) if i.get("time", "").strip()]
-        if timed:
-            new_section = dict(section)
-            new_section["items"] = timed
-            filtered_sections.append(new_section)
+    open_sections = [s for s in data.get("sections", []) if s.get("items")]
     return {
-        "greeting": "תזכורת: הדברים שקבועים להיום לפי שעה ⏰",
+        "greeting": "תזכורת לסוף היום 📌 מה שעדיין פתוח (יחזור מחר עד שתסמני שסיימת):",
         "footer": data.get("footer", ""),
-        "sections": filtered_sections,
+        "sections": open_sections,
     }
 
 
@@ -146,10 +140,10 @@ def send_daily_email(mode="morning"):
 
     if mode == "reminder":
         subject = SUBJECT_REMINDER
-        data = filter_timed_items(data)
-        # אם אין היום כלום עם שעה — לא שולחים תזכורת ריקה
+        data = build_reminder_data(data)
+        # אם אין כלום פתוח — לא שולחים תזכורת ריקה
         if not data["sections"]:
-            return {"sent_to": recipient, "subject": subject, "skipped": "no timed items"}
+            return {"sent_to": recipient, "subject": subject, "skipped": "nothing open"}
     else:
         subject = SUBJECT
 
