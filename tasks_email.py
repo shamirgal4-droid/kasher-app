@@ -4,14 +4,16 @@
 משתמש רק בספריות סטנדרטיות של פייתון (ללא pip install).
 """
 import os
+import sys
 import json
 import ssl
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# נושא המייל
-SUBJECT = "🌅 היום יש לך:"
+# נושאי המייל
+SUBJECT = "🌅 היום יש לך:"            # מייל הבוקר (רשימה מלאה)
+SUBJECT_REMINDER = "⏰ תזכורת להיום:"  # תזכורת הערב (רק מה שקבוע לשעה)
 
 # נתיב לקובץ המשימות (תמיד ליד הקובץ הזה, כדי שיעבוד גם ב-Vercel וגם ב-Replit)
 TASKS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tasks.json")
@@ -21,6 +23,26 @@ def load_tasks():
     """טוען את רשימת המשימות מ-tasks.json."""
     with open(TASKS_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def filter_timed_items(data):
+    """
+    מחזיר עותק של הרשימה שכולל רק משימות שיש להן שעה (time לא ריק).
+    משמש לתזכורת הערב — למשל 'Claude & Automation (19:00)'.
+    שומר רק סעיפים שנשאר בהם לפחות פריט אחד.
+    """
+    filtered_sections = []
+    for section in data.get("sections", []):
+        timed = [i for i in section.get("items", []) if i.get("time", "").strip()]
+        if timed:
+            new_section = dict(section)
+            new_section["items"] = timed
+            filtered_sections.append(new_section)
+    return {
+        "greeting": "תזכורת: הדברים שקבועים להיום לפי שעה ⏰",
+        "footer": data.get("footer", ""),
+        "sections": filtered_sections,
+    }
 
 
 def _format_item(item):
@@ -100,9 +122,12 @@ def build_html_body(data):
 </html>"""
 
 
-def send_daily_email():
+def send_daily_email(mode="morning"):
     """
-    שולח את מייל המשימות היומי דרך Gmail SMTP.
+    שולח מייל דרך Gmail SMTP.
+      mode="morning"  -> מייל הבוקר עם הרשימה המלאה ("🌅 היום יש לך:")
+      mode="reminder" -> תזכורת הערב רק עם מה שקבוע לשעה ("⏰ תזכורת להיום:")
+
     דורש משתני סביבה:
       GMAIL_USER          - כתובת הג'ימייל השולחת
       GMAIL_APP_PASSWORD  - App Password של Gmail (16 תווים, לא הסיסמה הרגילה!)
@@ -119,8 +144,17 @@ def send_daily_email():
 
     data = load_tasks()
 
+    if mode == "reminder":
+        subject = SUBJECT_REMINDER
+        data = filter_timed_items(data)
+        # אם אין היום כלום עם שעה — לא שולחים תזכורת ריקה
+        if not data["sections"]:
+            return {"sent_to": recipient, "subject": subject, "skipped": "no timed items"}
+    else:
+        subject = SUBJECT
+
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = SUBJECT
+    msg["Subject"] = subject
     msg["From"] = gmail_user
     msg["To"] = recipient
     msg.attach(MIMEText(build_text_body(data), "plain", "utf-8"))
@@ -131,10 +165,11 @@ def send_daily_email():
         server.login(gmail_user, gmail_pass)
         server.sendmail(gmail_user, [recipient], msg.as_string())
 
-    return {"sent_to": recipient, "subject": SUBJECT}
+    return {"sent_to": recipient, "subject": subject}
 
 
 if __name__ == "__main__":
-    # הרצה ידנית לבדיקה: python tasks_email.py
-    result = send_daily_email()
+    # הרצה ידנית לבדיקה: python tasks_email.py [morning|reminder]
+    m = sys.argv[1] if len(sys.argv) > 1 else "morning"
+    result = send_daily_email(mode=m)
     print("✅ נשלח:", result)
