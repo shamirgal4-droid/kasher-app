@@ -1,13 +1,15 @@
 name: Daily task email
 
-# רץ אוטומטית פעמיים ביום (שעון UTC — ישראל פחות 3 בקיץ):
-#   04:00 UTC = 07:00 בישראל (קיץ) — מייל הבוקר עם הרשימה המלאה
-#   16:00 UTC = 19:00 בישראל (קיץ) — תזכורת הערב על מה שקבוע לשעה
-# בחורף (UTC+2) שני ל-'0 5 * * *' ו-'0 17 * * *' כדי לשמור על 07:00 ו-19:00.
+# רץ אוטומטית פעמיים ביום (שעון UTC — ישראל פחות 3 בקיץ).
+# מכוונים לכמה דקות אחרי השעה העגולה (07 במקום 00) כי GitHub עמוס בשעה עגולה
+# ומעכב/מדלג — כמה דקות אחרי זה הרבה יותר אמין:
+#   04:07 UTC ≈ 07:07 בישראל (קיץ) — מייל הבוקר עם הרשימה המלאה
+#   16:07 UTC ≈ 19:07 בישראל (קיץ) — תזכורת הערב
+# בחורף (UTC+2) שני ל-'7 5 * * *' ו-'7 17 * * *'.
 on:
   schedule:
-    - cron: "0 4 * * *"
-    - cron: "0 16 * * *"
+    - cron: "7 4 * * *"
+    - cron: "7 16 * * *"
   # כפתור להרצה ידנית מיידית (Actions -> Daily task email -> Run workflow)
   workflow_dispatch:
     inputs:
@@ -33,7 +35,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
         run: |
-          if [ "${{ github.event.schedule }}" = "0 16 * * *" ]; then
+          if [ "${{ github.event.schedule }}" = "7 16 * * *" ]; then
             MODE=reminder
           else
             MODE="${{ github.event.inputs.mode || 'morning' }}"
